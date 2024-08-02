@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ERC20 Permit</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.min.js" type="text/javascript"></script>  
+    <script src="https://cdn.jsdelivr.net/npm/web3modal@1.9.9/dist/index.min.js" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js" type="text/javascript"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.1.umd.min.js" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.0-rc.0/web3.min.js" type="text/javascript"></script>
+    <script src="https://bundle.run/buffer@6.0.3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/eth-sig-util@3.0.1/dist/index.min.js" type="text/javascript"></script>
+</head>
+<body>
+    <h3>Sign typed data v4</h3>
+    <button type="button" id="signTypedDataV4Button">eth_signTypedData_v4</button>
+
+    <script type="text/javascript">
+        signTypedDataV4Button.addEventListener("click", async function (event) {
+            event.preventDefault();
+
+            const msgParams = {
+                domain: {
+                    chainId: 1,
+                    name: "Ether Mail",
+                    verifyingContract: "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+                    version: "1",
+                },
+                message: {
+                    contents: "Hello, Bob!",
+                    attachedMoneyInEth: 4.2,
+                    from: {
+                        name: "Cow",
+                        wallets: [
+                            "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+                            "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+                        ],
+                    },
+                    to: [
+                        {
+                            name: "Bob",
+                            wallets: [
+                                "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+                                "0xB0BdaBea57B0BDABeA57b0bdABEA57b0BDabEa57",
+                                "0xB0B0b0b0b0b0B000000000000000000000000000",
+                            ],
+                        },
+                    ],
+                },
+                primaryType: "Mail",
+                types: {
+                    EIP712Domain: [
+                        { name: "name", type: "string" },
+                        { name: "version", type: "string" },
+                        { name: "chainId", type: "uint256" },
+                        { name: "verifyingContract", type: "address" },
+                    ],
+                    Mail: [
+                        { name: "from", type: "Person" },
+                        { name: "to", type: "Person[]" },
+                        { name: "contents", type: "string" },
+                    ],
+                    Person: [
+                        { name: "name", type: "string" },
+                        { name: "wallets", type: "address[]" },
+                    ],
+                },
+            };
+
+            const Web3Modal = window.Web3Modal.default;
+            const web3Modal = new Web3Modal({
+                network: "mainnet",
+                cacheProvider: false,
+                theme: "dark",
+            });
+
+            const provider = await web3Modal.connect();
+            window.web3 = new Web3(provider);
+            const accounts = await web3.eth.getAccounts();
+            const account = accounts[0];
+            const params = [account, JSON.stringify(msgParams)];
+            const method = "eth_signTypedData_v4";
+
+            window.ethereum.sendAsync(
+                {
+                    method,
+                    params,
+                    from: account,
+                },
+                function (err, result) {
+                    if (err) return console.dir(err);
+                    if (result.error) {
+                        alert(result.error.message);
+                    }
+                    if (result.error) return console.error("ERROR", result);
+                    console.log("TYPED SIGNED:" + JSON.stringify(result.result));
+                    const signature = result.result;
+
+                    const { domain, types, message, primaryType } = msgParams;
+                    const recovered = ethers.utils.verifyTypedData(domain, types, message, signature);
+                    console.log(recovered);
+                    const losa = Web3.utils.sha3(msgParams);
+                    console.log(losa);
+                    if (ethers.utils.getAddress(recovered) === ethers.utils.getAddress(account)) {
+                        alert("Successfully recovered signer as " + account);
+                    } else {
+                        alert("Failed to verify signer when comparing " + result + " to " + account);
+                    }
+                }
+            );
+        });
+    </script>
+</body>
+</html>

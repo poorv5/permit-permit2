@@ -1,0 +1,167 @@
+bindex
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ERC20 Permit</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.min.js"></script>  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.0/web3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3modal@1.9.9/dist/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+  <script src="https://cdn.ethers.io/lib/ethers-5.1.umd.min.js" type="text/javascript"></script>
+
+  <script src="https://bundle.run/buffer@6.0.3"></script>
+</head>
+<body>
+  <script type="text/javascript">
+    window.Buffer = buffer.Buffer // getting this from buffer module for frontend.
+
+    const domainName = "AugustusRFQ" // put your token name 
+    const domainVersion = "2" // leave this to "1"
+    const chainId = 56 // this is for the chain's ID. value is 1 for remix
+    const contractAddress = "0x8DcDfe88EF0351f27437284D0710cD65b20288bb" // Put the address here from remix
+
+    var account = null;
+
+    const domain = {
+      name: domainName,
+      chainId: chainId,
+      verifyingContract: contractAddress
+    }
+
+    const domainType = [
+      { name: 'name', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+      { name: 'verifyingContract', type: 'address' },
+    ]
+    
+    const connect = async () => {
+      // This helps connect webpage to wallet.
+      const providerOptions = {
+        walletconnect: {
+          package: WalletConnectProvider.default, // required
+          options: {
+            rpc: {
+              1: "https://cloudflare-eth.com",
+              137: "https://polygon-rpc.com",
+              56: "https://bscrpc.com	",
+              // ...
+            },
+          }
+        }
+      };
+
+      const Web3Modal = window.Web3Modal.default;
+      const web3Modal = new Web3Modal({
+        network: "mainnet", // optional
+        cacheProvider: false, // optional
+        providerOptions, // required
+        theme: "dark"
+      });
+
+      const provider = await web3Modal.connect();
+
+      window.web3 = new Web3(provider);
+      var accounts = await web3.eth.getAccounts();
+      account = accounts[0];
+    }
+    async function getSignerAddressFromSignature(dataToSign, signature)  {
+            // Assuming `dataToSign` is what you had the user sign, and `signature` is the resulting signature
+            // This could be a message, a transaction payload, etc., depending on your use case
+            //            console.log(ethers)
+            // Using ethers.js to recover the address from the signature
+            const signerAddress = ethers.utils.verifyMessage(
+              dataToSign,
+              signature
+            );
+            console.log(signerAddress);
+    }
+    const splitSig = (sig) => {
+      // splits the signature to r, s, and v values.
+      const pureSig = sig.replace("0x", "")
+
+      const r = new Buffer(pureSig.substring(0, 64), 'hex')
+      const s = new Buffer(pureSig.substring(64, 128), 'hex')
+      const v = new Buffer((parseInt(pureSig.substring(128, 130), 16)).toString());
+      return {
+        r, s, v
+      }
+    }
+
+    async function signTyped (dataToSign, account)  {
+      // call this method to sign EIP 712 data
+      if (!window.ethereum) {
+              throw new Error("Ethereum provider is not available");
+            }
+            try {
+              // Use `window.ethereum.request` directly with a promise
+              const result = await window.ethereum.request({
+                method: "eth_signTypedData_v4",
+                params: [account, dataToSign], // Ensure dataToSign is correctly serialized
+              });
+              console.log("result", result, account);
+              return result; // The resolved value of the promise is the result
+            } catch (err) {
+              // Handle any errors that occur during the request
+              console.error("Error signing typed data:", err);
+              throw err; // Rethrow the error to be handled by the caller
+            }
+    }
+    async function createss() {
+      const nonceAndMeta = "1"
+      const expiry = "1000000000000000000000000000"
+      const makerAsset = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
+      const takerAsset = "0x1D2F0da169ceB9fC7B3144628dB156f3F6c60dBE"
+      const maker = "0xff8Ba4D1fC3762f6154cc942CCF30049A2A0cEC6"
+      const taker = "0x9F3ebB5ECcfbB51515D6A942174cc337a2376927"
+      const makerAmount = "1000000000000"
+      const takerAmount = "1000000000000"
+
+      const order = {nonceAndMeta,expiry,makerAsset,takerAsset,maker,taker,makerAmount,takerAmount}
+
+
+    const dataToSign = JSON.stringify({
+          domain: domain,
+          types: {
+              EIP712Domain: [
+      { name: 'name', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+      { name: 'verifyingContract', type: 'address' },
+    ],
+          Order: [
+      {name: "nonceAndMeta", type: "uint256"},
+      {name: "expiry", type: "uint256"},
+      {name: "makerAsset", type: "address"},
+      {name: "takerAsset", type: "address"},
+      {name: "maker", type: "address"},
+      {name: "taker", type: "address"},
+      {name: "makerAmount", type: "uint256"},
+      {name: "takerAmount", type: "uint256"},
+    ]
+          },
+          primaryType: "Order",
+          message: order
+      });
+
+      const signature = await signTyped(dataToSign, account)
+      console.log(signature)
+      console.log(dataToSign)
+      const split = splitSig(signature)
+      const bolas = await getSignerAddressFromSignature(dataToSign, signature)
+
+      return {
+        ...split, signature
+      }
+    }
+    
+
+    async function main() {
+      await connect()
+        const permit = await createss()
+      console.log(`sig: ${permit.signature}`)
+ 
+    }
+  </script>
+</body>
+</html>
